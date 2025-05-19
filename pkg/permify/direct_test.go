@@ -89,3 +89,52 @@ func TestDirectUsage(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateDeleteRelationship(t *testing.T) {
+	engine, err := NewEngine(context.Background(), testSchema, []string{
+		"DefaultResource:hc#org@organization:mhy",
+	})
+	assert.NoError(t, err)
+
+	// bob does not have permission (not registered)
+	allowed, err := engine.Check(context.Background(), "user:bob", "edit", "DefaultResource:hc")
+	assert.NoError(t, err)
+	assert.False(t, allowed)
+	allowed, err = engine.Check(context.Background(), "user:bob", "read", "DefaultResource:hc")
+	assert.NoError(t, err)
+	assert.False(t, allowed)
+
+	// bob has guest permisison
+	err = engine.UpdateRelationships(context.Background(), []string{
+		"organization:mhy#guest@user:bob",
+	})
+	assert.NoError(t, err)
+	allowed, err = engine.Check(context.Background(), "user:bob", "edit", "DefaultResource:hc")
+	assert.NoError(t, err)
+	assert.False(t, allowed)
+	allowed, err = engine.Check(context.Background(), "user:bob", "read", "DefaultResource:hc")
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+
+	// bob has admin permission
+	err = engine.UpdateRelationships(context.Background(), []string{
+		"organization:mhy#sre@user:bob",
+	})
+	assert.NoError(t, err)
+	allowed, err = engine.Check(context.Background(), "user:bob", "edit", "DefaultResource:hc")
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	allowed, err = engine.Check(context.Background(), "user:bob", "read", "DefaultResource:hc")
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+
+	// bob does not have permission (deleted all relationships)
+	err = engine.DeleteAllSubjectRelationships(context.Background(), "user:bob")
+	assert.NoError(t, err)
+	allowed, err = engine.Check(context.Background(), "user:bob", "edit", "DefaultResource:hc")
+	assert.NoError(t, err)
+	assert.False(t, allowed)
+	allowed, err = engine.Check(context.Background(), "user:bob", "read", "DefaultResource:hc")
+	assert.NoError(t, err)
+	assert.False(t, allowed)
+}

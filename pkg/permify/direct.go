@@ -22,9 +22,10 @@ const DefaultTenantID = "default"
 var DefaultSnapToken = token.NewNoopToken().Encode().String()
 
 type Engine struct {
-	invoker   *invoke.DirectInvoker
-	entityDef []*base.EntityDefinition
-	ruleDef   []*base.RuleDefinition
+	invoker    *invoke.DirectInvoker
+	dataWriter storage.DataWriter
+	entityDef  []*base.EntityDefinition
+	ruleDef    []*base.RuleDefinition
 }
 
 func NewEngine(ctx context.Context, schema string, relationship []string) (*Engine, error) {
@@ -98,9 +99,10 @@ func NewEngine(ctx context.Context, schema string, relationship []string) (*Engi
 	}
 
 	return &Engine{
-		invoker:   invoker,
-		entityDef: entityDef,
-		ruleDef:   ruleDef,
+		invoker:    invoker,
+		dataWriter: dataWriter,
+		entityDef:  entityDef,
+		ruleDef:    ruleDef,
 	}, nil
 }
 
@@ -137,6 +139,33 @@ func (e *Engine) Check(ctx context.Context, subject, action, entity string) (boo
 	}
 
 	return response.GetCan() == base.CheckResult_CHECK_RESULT_ALLOWED, nil
+}
+
+func (e *Engine) UpdateRelationships(ctx context.Context, relationships []string) error {
+	var tuples []*base.Tuple
+	for _, relationship := range relationships {
+		tup, err := tuple.Tuple(relationship)
+		if err != nil {
+			return err
+		}
+		tuples = append(tuples, tup)
+	}
+	_, err := e.dataWriter.Write(ctx, DefaultTenantID, database.NewTupleCollection(tuples...), database.NewAttributeCollection())
+	return err
+}
+
+func (e *Engine) DeleteAllSubjectRelationships(ctx context.Context, subject string) error {
+	ear, err := tuple.EAR(subject)
+	if err != nil {
+		return err
+	}
+	_, err = e.dataWriter.Delete(ctx, DefaultTenantID, &base.TupleFilter{
+		Subject: &base.SubjectFilter{
+			Type: ear.GetEntity().GetType(),
+			Ids:  []string{ear.GetEntity().GetId()},
+		},
+	}, &base.AttributeFilter{})
+	return err
 }
 
 func (e *Engine) GetEntityDefinition() []*base.EntityDefinition {
