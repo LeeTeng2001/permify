@@ -2,6 +2,7 @@ package permify
 
 import (
 	"context"
+	"sync"
 
 	"github.com/Permify/permify/internal/config"
 	"github.com/Permify/permify/internal/engines"
@@ -15,6 +16,8 @@ import (
 	"github.com/Permify/permify/pkg/token"
 	"github.com/Permify/permify/pkg/tuple"
 	"github.com/rs/xid"
+	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const DefaultTenantID = "default"
@@ -26,6 +29,10 @@ type Engine struct {
 	dataWriter storage.DataWriter
 	entityDef  []*base.EntityDefinition
 	ruleDef    []*base.RuleDefinition
+
+	// subject -> entity-permission
+	directPermisisonMapLck sync.RWMutex
+	directPermissionMap    map[string]map[lo.Tuple2[string, string]]bool
 }
 
 func NewEngine(ctx context.Context, schema string, relationship []string) (*Engine, error) {
@@ -56,9 +63,6 @@ func NewEngine(ctx context.Context, schema string, relationship []string) (*Engi
 			Name:                 st.GetName(),
 			SerializedDefinition: []byte(st.String()),
 		})
-	}
-	if err != nil {
-		return nil, err
 	}
 
 	// write to memory db
@@ -99,10 +103,11 @@ func NewEngine(ctx context.Context, schema string, relationship []string) (*Engi
 	}
 
 	return &Engine{
-		invoker:    invoker,
-		dataWriter: dataWriter,
-		entityDef:  entityDef,
-		ruleDef:    ruleDef,
+		invoker:             invoker,
+		dataWriter:          dataWriter,
+		entityDef:           entityDef,
+		ruleDef:             ruleDef,
+		directPermissionMap: make(map[string]map[lo.Tuple2[string, string]]bool),
 	}, nil
 }
 
@@ -123,6 +128,10 @@ func (e *Engine) Check(ctx context.Context, subject, action, entity string) (boo
 		Relation: ear.GetRelation(),
 	}
 
+	if e.HasDirectPermission(subject, action, entity) {
+		return true, nil
+	}
+
 	response, err := e.invoker.Check(ctx, &base.PermissionCheckRequest{
 		TenantId:   DefaultTenantID,
 		Entity:     entityObj,
@@ -132,6 +141,15 @@ func (e *Engine) Check(ctx context.Context, subject, action, entity string) (boo
 			SnapToken:     DefaultSnapToken,
 			SchemaVersion: "",
 			Depth:         20,
+		},
+		Context: &base.Context{
+			Data: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"permission": {
+						Kind: &structpb.Value_StringValue{StringValue: action},
+					},
+				},
+			},
 		},
 	})
 	if err != nil {
@@ -152,6 +170,27 @@ func (e *Engine) UpdateRelationships(ctx context.Context, relationships []string
 	}
 	_, err := e.dataWriter.Write(ctx, DefaultTenantID, database.NewTupleCollection(tuples...), database.NewAttributeCollection())
 	return err
+}
+
+func (e *Engine) HasDirectPermission(subject, action, entity string) bool {
+	e.directPermisisonMapLck.RLock()
+	defer e.directPermisisonMapLck.RUnlock()
+	if _, ok := e.directPermissionMap[subject]; ok {
+		if _, ok := e.directPermissionMap[subject][lo.T2(entity, action)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) UpdateDirectPermission(ctx context.Context, subject string, entityPermissionList []lo.Tuple2[string, string]) {
+	e.directPermisisonMapLck.Lock()
+	defer e.directPermisisonMapLck.Unlock()
+	newDirectPermisison := map[lo.Tuple2[string, string]]bool{}
+	for _, entityPermission := range entityPermissionList {
+		newDirectPermisison[entityPermission] = true
+	}
+	e.directPermissionMap[subject] = newDirectPermisison
 }
 
 func (e *Engine) DeleteAllSubjectRelationships(ctx context.Context, subject string) error {

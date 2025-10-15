@@ -2,8 +2,10 @@ package permify
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,13 +43,19 @@ func TestDirectUsage(t *testing.T) {
 		assertions map[string]bool
 	}
 	tests := struct {
-		relationships []string
-		checks        []check
+		relationships    []string
+		directPermission map[string][]lo.Tuple2[string, string]
+		checks           []check
 	}{
 		relationships: []string{
 			"organization:mhy#sre@user:bob",
 			"organization:mhy#guest@user:userguest",
 			"DefaultResource:hc#org@organization:mhy",
+		},
+		directPermission: map[string][]lo.Tuple2[string, string]{
+			"user:userguest": {
+				lo.T2("DefaultResource:hc", "edit"),
+			},
 		},
 		checks: []check{
 			{
@@ -62,7 +70,7 @@ func TestDirectUsage(t *testing.T) {
 				entity:  "DefaultResource:hc",
 				subject: "user:userguest",
 				assertions: map[string]bool{
-					"edit": false,
+					"edit": true,
 					"read": true,
 				},
 			},
@@ -81,11 +89,15 @@ func TestDirectUsage(t *testing.T) {
 	engine, err := NewEngine(context.Background(), testSchema, tests.relationships)
 	assert.NoError(t, err)
 
+	for subject, entityPermissionList := range tests.directPermission {
+		engine.UpdateDirectPermission(context.Background(), subject, entityPermissionList)
+	}
+
 	for _, check := range tests.checks {
 		for permission, res := range check.assertions {
 			allowed, err := engine.Check(context.Background(), check.subject, permission, check.entity)
 			assert.NoError(t, err)
-			assert.Equal(t, res, allowed)
+			assert.Equal(t, res, allowed, fmt.Sprintf("permission: %s, subject: %s, entity: %s", permission, check.subject, check.entity))
 		}
 	}
 }
