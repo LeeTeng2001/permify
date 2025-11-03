@@ -235,8 +235,8 @@ func (ls *PermissionStatement) String() string {
 	sb.WriteString("permission")
 	sb.WriteString(" ")
 	sb.WriteString(ls.Name.Literal)
-	sb.WriteString(" = ")
 	if ls.ExpressionStatement != nil {
+		sb.WriteString(" = ")
 		sb.WriteString(ls.ExpressionStatement.String())
 	}
 	return sb.String()

@@ -49,7 +49,7 @@ func NewEngine(ctx context.Context, schema string, relationship []string) (*Engi
 	if err != nil {
 		return nil, err
 	}
-	entityDef, ruleDef, err := compiler.NewCompiler(false, sch).Compile()
+	entityDef, ruleDef, err := compiler.NewCompiler(true, sch).Compile()
 	if err != nil {
 		return nil, err
 	}

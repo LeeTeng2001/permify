@@ -20,6 +20,7 @@ entity organization {
     relation ops @user
     relation sre @user
 
+    permission test_empty
     permission default_ops_permission = ops or sre
     permission default_user_ops_permission = default_ops_permission or user_ops
     permission default_qa_permission = default_user_ops_permission or qa

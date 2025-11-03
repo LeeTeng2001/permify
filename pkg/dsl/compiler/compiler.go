@@ -139,6 +139,11 @@ func (t *Compiler) compileEntity(sc *ast.EntityStatement) (*base.EntityDefinitio
 			return nil, compileError(token.PositionInfo{}, base.ErrorCode_ERROR_CODE_SCHEMA_COMPILE.String())
 		}
 
+		// if permisison statement is nil, it's a placeholder
+		if st.ExpressionStatement == nil {
+			continue
+		}
+
 		// Compile the child expression
 		ch, err := t.compileExpressionStatement(entityDefinition.GetName(), st.ExpressionStatement.(*ast.ExpressionStatement))
 		if err != nil {

@@ -545,8 +545,6 @@ func (p *Parser) parsePermissionStatement(entityName string) (ast.Statement, err
 
 	// empty permission is valid!
 	if p.peekTokenIs(token.NEWLINE) {
-		p.next()
-		stmt.ExpressionStatement = &ast.ExpressionStatement{}
 		return stmt, nil
 	}
 
