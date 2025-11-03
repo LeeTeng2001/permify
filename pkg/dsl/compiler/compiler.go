@@ -141,6 +141,12 @@ func (t *Compiler) compileEntity(sc *ast.EntityStatement) (*base.EntityDefinitio
 
 		// if permisison statement is nil, it's a placeholder
 		if st.ExpressionStatement == nil {
+			permissionDefinition := &base.PermissionDefinition{
+				Name:  st.Name.Literal,
+				Child: &base.Child{},
+			}
+			entityDefinition.Permissions[permissionDefinition.GetName()] = permissionDefinition
+			entityDefinition.References[permissionDefinition.GetName()] = base.EntityDefinition_REFERENCE_PERMISSION
 			continue
 		}
 

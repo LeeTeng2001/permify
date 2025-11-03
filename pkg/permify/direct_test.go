@@ -20,7 +20,6 @@ entity organization {
     relation ops @user
     relation sre @user
 
-    permission test_empty
     permission default_ops_permission = ops or sre
     permission default_user_ops_permission = default_ops_permission or user_ops
     permission default_qa_permission = default_user_ops_permission or qa
@@ -32,6 +31,7 @@ entity DefaultResource {
     relation org @organization
 
     action edit = org.default_ops_permission
+    permission direct_access
     action read = org.default_guest_permission
 }
 `
