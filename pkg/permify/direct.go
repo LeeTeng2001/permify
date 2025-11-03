@@ -17,7 +17,6 @@ import (
 	"github.com/Permify/permify/pkg/tuple"
 	"github.com/rs/xid"
 	"github.com/samber/lo"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const DefaultTenantID = "default"
@@ -142,15 +141,6 @@ func (e *Engine) Check(ctx context.Context, subject, action, entity string) (boo
 			SchemaVersion: "",
 			Depth:         20,
 		},
-		Context: &base.Context{
-			Data: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"permission": {
-						Kind: &structpb.Value_StringValue{StringValue: action},
-					},
-				},
-			},
-		},
 	})
 	if err != nil {
 		return false, err
@@ -204,6 +194,11 @@ func (e *Engine) DeleteAllSubjectRelationships(ctx context.Context, subject stri
 			Ids:  []string{ear.GetEntity().GetId()},
 		},
 	}, &base.AttributeFilter{})
+
+	e.directPermisisonMapLck.Lock()
+	defer e.directPermisisonMapLck.Unlock()
+	delete(e.directPermissionMap, subject)
+
 	return err
 }
 
