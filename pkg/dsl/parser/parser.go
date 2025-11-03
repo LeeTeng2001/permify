@@ -543,6 +543,12 @@ func (p *Parser) parsePermissionStatement(entityName string) (ast.Statement, err
 		return nil, p.Error()
 	}
 
+	// empty permission is valid!
+	if p.peekTokenIs(token.NEWLINE) {
+		p.next()
+		return stmt, nil
+	}
+
 	// expect the next token to be an ASSIGN token, indicating the start of the expression to be assigned to the action
 	if !p.expectAndNext(token.ASSIGN) {
 		return nil, p.Error()
